@@ -11,6 +11,7 @@
 import os, sys
 import cv2
 import numpy as np
+import copy
 
 RoiX1=0
 RoiY1=0
@@ -18,10 +19,10 @@ RoiX2=0
 RoiY2=0
 RoiPnt=0
 
-def select_roi(video):
+def select_roi(img, col):
 
     cv2.namedWindow("Select Roi")
-    ret, frame = video.read()
+    frame = copy.copy(img)
     def mouse_event(event,x,y,flags,param):
         global RoiX1, RoiY1
         global RoiX2, RoiY2
@@ -43,8 +44,8 @@ def select_roi(video):
     cv2.setMouseCallback("Select Roi", mouse_event)
 
     while True:
-        ret, frame = video.read()
-        cv2.rectangle(frame, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 1, 1)
+        frame = copy.copy(img)
+        cv2.rectangle(frame, (RoiX1, RoiY1), (RoiX2, RoiY2), col, 1, 1)
         cv2.imshow("Select Roi", frame)
 
         k = cv2.waitKey(100) & 0xFF
@@ -55,4 +56,4 @@ def select_roi(video):
     return RoiX1, RoiY1, RoiX2, RoiY2
 
 if __name__ == '__main__':
-    select_roi( cv2.VideoCapture(1) )
+   pass

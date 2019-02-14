@@ -11,7 +11,7 @@ import copy
 
 
 
-BaseDir = "c:/tmp/muenzen_1"
+BaseDir = "Testmodell1"
 cl = classifier.Classifier()
 
 RoiX1=0
@@ -46,61 +46,20 @@ try:
 except:
     pass
 
-LEDS=6
-MOTOR=7
+LEDS=6   #Arduino DO6
+MOTOR=7  #Arduino DO7
+REED=8   #Arduino DI8
 
 frame = None
 
-rect_pts = [(0,0),(0,0)]
-
-def SelectRoi(event, x, y, flags, param):
-    global RoiX1, RoiY1, RoiX2, RoiY2
-    if event == cv2.EVENT_LBUTTONDOWN:
-        (RoiX1,RoiY1) = (x, y)
-        (RoiX2,RoiY2) = (-1,-1)
-
-    if event == cv2.EVENT_LBUTTONUP:
-        (RoiX2, RoiY2) = (x, y)
-
-    # draw a rectangle around the region of interest
-    if RoiX2 == -1:
-        cv2.rectangle(frame, (RoiX1,RoiY1), (x, y), (0, 255, 0), 2)
-    else:
-        cv2.rectangle(frame, (RoiX1, RoiY1), (RoiX2,RoiY2), (0, 255, 0), 2)
-    cv2.imshow("VideoIn", frame)
-
-
-def SelectRoiDetector(event, x, y, flags, param):
-    global DetectorRoiX1, DetectorRoiY1, DetectorRoiX2, DetectorRoiY2
-    if event == cv2.EVENT_LBUTTONDOWN:
-        (DetectorRoiX1, DetectorRoiY1) = (x, y)
-        (DetectorRoiX2, DetectorRoiY2) = (-1,-1)
-
-    if event == cv2.EVENT_LBUTTONUP:
-        (DetectorRoiX2, DetectorRoiY2) = (x, y)
-
-    # draw a rectangle around the region of interest
-    if DetectorRoiX2 == -1:
-        cv2.rectangle(frame, (DetectorRoiX1, DetectorRoiY1), (x, y), (255, 0, 0), 2)
-    else:
-        cv2.rectangle(frame, (DetectorRoiX1, DetectorRoiY1), (DetectorRoiX2, DetectorRoiY2), (255, 0, 0), 2)
-    cv2.imshow("VideoIn", frame)
-
-cv2.namedWindow("VideoIn")
-
+#rect_pts = [(0,0),(0,0)]
 
 Exposure=-8
 cap = cv2.VideoCapture(1)
 time.sleep(2)
 cap.set(cv2.CAP_PROP_EXPOSURE, Exposure)
 
-
 cl.setBaseDir(BaseDir)
-#RoiX1, RoiY1, RoiX2, RoiY2 = cl.roi()
-
-#if RoiX1 is None:
-#    RoiX1, RoiY1, RoiX2, RoiY2 = tools.select_roi(cap)
-#    cl.set_roi(RoiX1, RoiY1, RoiX2, RoiY2)
 
 
 pc = procchain.ProcChain("ROI")
@@ -177,10 +136,10 @@ while(True):
         break
 
     elif k == ord('r'):             # Roi setzen
-        cv2.setMouseCallback("VideoIn", SelectRoi)
+        (RoiX1, RoiY1, RoiX2, RoiY2)=tools.select_roi(roimark, (0, 255, 0))
 
     elif k == ord('d'):             # Detector Roi setzen
-        cv2.setMouseCallback("VideoIn", SelectRoiDetector)
+        (DetectorRoiX1, DetectorRoiY1, DetectorRoiX2, DetectorRoiY2) = tools.select_roi(roimark, (0, 0, 255))
 
     elif k == ord('a'):             # Append Image
         cl.addItem(simg,"%d" % pos)
@@ -237,25 +196,48 @@ except:
 
 cv2.destroyAllWindows()
 
+ImageDetected=False
+
+r = ''
 while(True):
     # Capture frame-by-frame
+
     ret, frame = cap.read()
-    cv2.imshow("VideoIn", frame)
+
+    roimark = copy.copy(frame)
+    cv2.rectangle(roimark, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 1, 1)
+    cv2.rectangle(roimark, (DetectorRoiX1, DetectorRoiY1), (DetectorRoiX2, DetectorRoiY2), (255, 0, 0), 2)
+    cv2.putText(roimark, '%s' % r, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
+    cv2.imshow("VideoIn", roimark)
     roi = pc.process(frame)
+    detector = frame[DetectorRoiY1: DetectorRoiY2, DetectorRoiX1: DetectorRoiX2]
     #cv2.imshow("VideoStore", roi)
 
     try:
-        r = cl.test(roi)
-        print r
-        if not r == '0':
-            while True:
-                kb.stepper(1, 20)
-                kb.poll(t=0.6)
-                s = kb.getDI(7)
-                print s
-                if s == 0:
-                    break
-            kb.stepper(1, int(r) )
+
+        DetectorMean = cv2.mean(detector)[0]
+        print "Mean %d" % DetectorMean
+
+        if  DetectorMean < DetectorTH:  # Append Image
+            ImageDetected = True
+            kb.reset(MOTOR)
+            r = cl.test(roi)
+            if not r == '':
+                while True:
+                    kb.stepper(1, 10)
+
+                    kb.poll(t=0.2)
+                    time.sleep(0.2)
+                    s = kb.getDI(REED)
+                    if s == 0:
+                        print "0-Stelle gefunden"
+                        break
+                kb.stepper(1, int(r) )
+                time.sleep(3)
+                kb.set(MOTOR)
+                kb.set(LED)
+                r=''
 
     except Exception, ex:
         print str(ex)
@@ -264,7 +246,6 @@ while(True):
     k = cv2.waitKey(100)& 0xFF
     if k == ord('e'):
         break
-    elif k == ord('b'):
-        bg = frame.astype(np.float)
+
 
 kb.reset(LEDS)
