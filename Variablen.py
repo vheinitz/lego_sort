@@ -11,7 +11,7 @@ import copy
 
 
 
-BaseDir = "Testmodell1"
+BaseDir = "c:/tmp/muenzen_1"
 cl = classifier.Classifier()
 
 RoiX1=0
@@ -24,33 +24,47 @@ DetectorRoiY1=0
 DetectorRoiX2=640
 DetectorRoiY2=480
 
-try:
-    cfg = open( os.path.join(BaseDir,"roi.txt"), 'r' ).readlines()
-    n = cfg[0].split(' ')
-    RoiX1 = int(n[0])
-    RoiY1 = int(n[1])
-    RoiX2 = int(n[2])
-    RoiY2 = int(n[3])
-
-    n = cfg[1].split(' ')
-    DetectorRoiX1 = int(n[0])
-    DetectorRoiY1 = int(n[1])
-    DetectorRoiX2 = int(n[2])
-    DetectorRoiY2 = int(n[3])
-
-    cfg = open(os.path.join(BaseDir, "map.txt"), 'r').readlines()
-    for l in cfg:
-        n = int(l.split(' ')[0])
-        v = int(l.split(' ')[1])
-        cl.resultmap[n] = v
-except:
-    pass
-
 LEDS=6   #Arduino DO6
 MOTOR=7  #Arduino DO7
 REED=8   #Arduino DI8
 
-frame = None
+Kamerbild = None
+
+
+def SelectRoi(event, x, y, flags, param):
+    global RoiX1, RoiY1, RoiX2, RoiY2
+    if event == cv2.EVENT_LBUTTONDOWN:
+        (RoiX1,RoiY1) = (x, y)
+        (RoiX2,RoiY2) = (-1,-1)
+
+    if event == cv2.EVENT_LBUTTONUP:
+        (RoiX2, RoiY2) = (x, y)
+
+    # draw a rectangle around the region of interest
+    if RoiX2 == -1:
+        cv2.rectangle(Kamerbild, (RoiX1, RoiY1), (x, y), (0, 255, 0), 2)
+    else:
+        cv2.rectangle(Kamerbild, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 2)
+    cv2.imshow("VideoIn", Kamerbild)
+
+
+def SelectRoiDetector(event, x, y, flags, param):
+    global DetectorRoiX1, DetectorRoiY1, DetectorRoiX2, DetectorRoiY2
+    if event == cv2.EVENT_LBUTTONDOWN:
+        (DetectorRoiX1, DetectorRoiY1) = (x, y)
+        (DetectorRoiX2, DetectorRoiY2) = (-1,-1)
+
+    if event == cv2.EVENT_LBUTTONUP:
+        (DetectorRoiX2, DetectorRoiY2) = (x, y)
+
+    # draw a rectangle around the region of interest
+    if DetectorRoiX2 == -1:
+        cv2.rectangle(Kamerbild, (DetectorRoiX1, DetectorRoiY1), (x, y), (255, 0, 0), 2)
+    else:
+        cv2.rectangle(Kamerbild, (DetectorRoiX1, DetectorRoiY1), (DetectorRoiX2, DetectorRoiY2), (255, 0, 0), 2)
+    cv2.imshow("VideoIn", Kamerbild)
+
+cv2.namedWindow("VideoIn")
 
 
 Exposure=-8

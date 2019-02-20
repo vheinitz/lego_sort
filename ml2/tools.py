@@ -11,6 +11,8 @@
 import os, sys
 import cv2
 import numpy as np
+import copy
+import math
 
 RoiX1=0
 RoiY1=0
@@ -18,10 +20,33 @@ RoiX2=0
 RoiY2=0
 RoiPnt=0
 
-def select_roi(video):
+wname = "Select Roi (Exit with q)"
+movement_detected_old_avg=-1
+movement_detected_nth=0
 
-    cv2.namedWindow("Select Roi")
-    ret, frame = video.read()
+def movement_detected( img, th=5, nth=2 ):
+    global movement_detected_old_avg
+    global movement_detected_nth
+    movement_detected_nth += 1
+    if movement_detected_nth % nth == 0:
+        return False
+    blr = cv2.blur(img, (5, 5))
+    res = False
+    av = cv2.mean(blr)[0]
+    if movement_detected_old_avg == -1:
+        res = False
+    elif movement_detected_old_avg - av > th:
+        res = True
+    movement_detected_old_avg = av
+    return res
+
+
+
+
+def select_roi(img, col):
+
+    cv2.namedWindow(wname)
+    frame = copy.copy(img)
     def mouse_event(event,x,y,flags,param):
         global RoiX1, RoiY1
         global RoiX2, RoiY2
@@ -40,19 +65,19 @@ def select_roi(video):
             if RoiPnt == 1:
                 RoiX2, RoiY2 = x, y
 
-    cv2.setMouseCallback("Select Roi", mouse_event)
+    cv2.setMouseCallback(wname, mouse_event)
 
     while True:
-        ret, frame = video.read()
-        cv2.rectangle(frame, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 1, 1)
-        cv2.imshow("Select Roi", frame)
+        frame = copy.copy(img)
+        cv2.rectangle(frame, (RoiX1, RoiY1), (RoiX2, RoiY2), col, 1, 1)
+        cv2.imshow(wname, frame)
 
         k = cv2.waitKey(100) & 0xFF
         if k == ord('q'):
             break
 
-    cv2.destroyWindow("Select Roi")
+    cv2.destroyWindow(wname)
     return RoiX1, RoiY1, RoiX2, RoiY2
 
 if __name__ == '__main__':
-    select_roi( cv2.VideoCapture(1) )
+   pass
