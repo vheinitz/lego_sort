@@ -8,11 +8,12 @@ from ml2 import tools
 from kikuboard import kikuboard
 import time
 import copy
+import Einstellungen            #Gemeinsame Datei Einstellungen importieren
 
 
 
 BaseDir = "Testmodell1"
-cl = classifier.Classifier()
+Klassifikator = classifier.Classifier()
 
 RoiX1=0
 RoiY1=0
@@ -42,63 +43,56 @@ try:
     for l in cfg:
         n = int(l.split(' ')[0])
         v = int(l.split(' ')[1])
-        cl.resultmap[n] = v
+        Klassifikator.resultmap[n] = v
 except:
     pass
 
 LEDS=6   #Arduino DO6
 MOTOR=7  #Arduino DO7
-REED=8   #Arduino DI8
-
-frame = None
-
 
 Exposure=-8
-cap = cv2.VideoCapture(1)   #Kamera einschalten
+cap = cv2.VideoCapture(Einstellungen.CameraID)   #Kamera einschalten
 time.sleep(2)
 cap.set(cv2.CAP_PROP_EXPOSURE, Exposure)
 
-cl.setBaseDir(BaseDir)
+Klassifikator.setBaseDir(BaseDir)
 
 
-pc = procchain.ProcChain("ROI")
-pc.append(procchain.ImgProcToGray())
-pc.append(procchain.ImgProcRoi( RoiX1, RoiX2, RoiY1, RoiY2))
-pc.enableDebug(True)
+ProzessKetteROI = procchain.ProcChain("ROI")
+ProzessKetteROI.append(procchain.ImgProcToGray())
+ProzessKetteROI.append(procchain.ImgProcRoi(RoiX1, RoiX2, RoiY1, RoiY2))
+ProzessKetteROI.enableDebug(True)
 
-pc1 = procchain.ProcChain("SVM-Data")
-pc1.append(procchain.ImgProcToGray())
-pc1.append(procchain.ImgProcStore( "ROI"))
-pc1.append(procchain.ImgProcObjRoi("ObjRoi"))
-pc1.append(procchain.ImgProcUse( "ROI"))
-pc1.append(procchain.ImgProcRoiByName( "ObjRoi"))
-pc1.append(procchain.ImgProcResize(32, 32))
-pc1.append(procchain.ImgProcNorm())
-pc1.append(procchain.ImgProcStore("result"))
-pc1.enableDebug(True)
+ProzessKetteSVMData = procchain.ProcChain("SVM-Data")
+ProzessKetteSVMData.append(procchain.ImgProcToGray())
+ProzessKetteSVMData.append(procchain.ImgProcStore("ROI"))
+ProzessKetteSVMData.append(procchain.ImgProcObjRoi("ObjRoi"))
+ProzessKetteSVMData.append(procchain.ImgProcUse("ROI"))
+ProzessKetteSVMData.append(procchain.ImgProcRoiByName("ObjRoi"))
+ProzessKetteSVMData.append(procchain.ImgProcResize(32, 32))
+ProzessKetteSVMData.append(procchain.ImgProcNorm())
+ProzessKetteSVMData.append(procchain.ImgProcStore("result"))
+ProzessKetteSVMData.enableDebug(True)
 
 
-kb = kikuboard.KiKuBoard()
-kb.connect()
-print kb.version()
-kb.set(LEDS)
-time.sleep(1)
+KiKuBoardInstanz = kikuboard.KiKuBoard()                   #KiKu (Kinderkurs) Platine Objekt zum Steuern vom Band und LEDs
+KiKuBoardInstanz.connect()                                 #Mit Arduino verbinden
+print KiKuBoardInstanz.version()                           #Version ausgeben
+KiKuBoardInstanz.set(LEDS)                                 #LEDs einschalten
 
-pos=0
-MotorOn=False
-DetectorTH=75
-ImageDetected=False
-StepperPos=0
-Class=0
-ClassToStepperPos = {}
+Fachwinkel=0                                 #Variable fuer den Fachwinkel
+MotorOn=False                                #Bandmotor an oder aus. Beim Start aus
+DetectorTH=5                                 #Detektor-Schranke (experimentell ermittelt)
+DifferenzZwischenNBild=4                     #Objekt feststellen indem die Mittelwertdifferenzen zwischen den N. Bild verglichen werden
 
-fe = featex.FeatEx()
-fe.append(featex.Pixels())
+FeatureExtractionInstanz = featex.FeatEx()        # FE Instanz erzeugen
+FeatureExtractionInstanz.append(featex.Pixels())  # Einzelne Pixel als Merkmale nutzen
 
 try:
-    cl.learn(pc1, fe)
+    Klassifikator.learn(ProzessKetteSVMData, FeatureExtractionInstanz)
 except:
     pass
+
 
 #Hier beginnt die Erkennung
 while(True):
@@ -107,41 +101,56 @@ while(True):
 
 
     Ausgabebild = copy.copy(Kamerbild)  # Kamerabild in Ausgabebild kopieren
-    detector = Kamerbild[DetectorRoiY1: DetectorRoiY2, DetectorRoiX1: DetectorRoiX2]
-    # cv2.imshow("Detector", detector)
-    DetektorMittelwert = cv2.mean(detector)[0]
-    print "DetektorMittelwert: %d" % DetektorMittelwert
+    DetectorROI = Kamerbild[DetectorRoiY1: DetectorRoiY2, DetectorRoiX1: DetectorRoiX2]
+    ObjektImDetektor = tools.movement_detected(DetectorROI, DetectorTH, DifferenzZwischenNBild)
 
     cv2.rectangle(Ausgabebild, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 1, 1)
     cv2.rectangle(Ausgabebild, (DetectorRoiX1, DetectorRoiY1), (DetectorRoiX2, DetectorRoiY2), (255, 0, 0), 2)
-    cv2.putText(Ausgabebild, '%d' % pos, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(Ausgabebild, 'Fachwinkel: %d, Objekt: %s' %
+                (Fachwinkel, str(ObjektImDetektor)),
+                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+
+    cv2.putText(Ausgabebild, 'Beenden: q, Winkel: +/-, Band: Leertaste, Fachwinkel 0-Pos: 0',
+                (10, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_4)
 
     cv2.imshow("VideoIn", Ausgabebild)
-    cv2.waitKey(10)
 
-    if DetektorMittelwert<DetectorTH :
-        try:
-            roi = pc.process(Kamerbild)  #ROI ausschneiden
-            Abteilungswinkel = cl.test(roi)
-            print Abteilungswinkel
-            if not Abteilungswinkel == '0':
-                while True:
-                    kb.stepper(1, 20)
-                    kb.poll(t=0.6)
-                    s = kb.getDI(8)
-                    print s
-                    if s == 0:
-                        break
-                kb.stepper(1, int(Abteilungswinkel) )
+    if MotorOn and ObjektImDetektor:  # Objekt festgestellt -> Bild fuer das eingestelle Fachwinkel hinzufuegen
+        roi = ProzessKetteROI.process(Kamerbild)  # ROI ausschneiden
+        Fachwinkel = Klassifikator.test(roi)
+        tools.movement_detector_reset()  # Verhindern, dass ein Objekt mehrmals erkannt wird, Objekt aus dem Feld rausfahren lassen
+        KiKuBoardInstanz.reset(MOTOR)   #Band Anhalten
+        kb.stepper(1, int(Fachwinkel))
+        KiKuBoardInstanz.set(MOTOR)     #Band Starten
+        time.sleep(3)                   #Warten, bis objekt vom Band weg ist
+        KiKuBoardInstanz.stepper(1, -int(Fachwinkel)) #Fach auf 0-Position zurueck drehen
 
-        except Exception, ex:
-            print str(ex)
-            pass
+    Taste = cv2.waitKey(10) & 0xFF
 
-        k = cv2.waitKey(100)& 0xFF
-        if k == ord('e'):
-            break
-        elif k == ord('b'):
-            bg = Kamerbild.astype(np.float)
+    if Taste == ord('q'):  # Anlernen beenden
+        break
 
-kb.reset(LEDS)
+    elif Taste == ord('+'):  # Fachwinkel vergroessern, Fach drehen
+        Fachwinkel += 20
+        KiKuBoardInstanz.stepper(1, 20)
+
+    elif Taste == ord('-'):  # Fachwinkel verkleinern, Fach drehen
+        Fachwinkel -= 20
+        KiKuBoardInstanz.stepper(1, -20)
+
+    elif Taste == ord('0'):  # Fachwinkel auf 0 setzen
+        Fachwinkel = 0
+
+    elif Taste == ord(' '):  # Band an-/aus- schalten
+        if MotorOn:
+            KiKuBoardInstanz.reset(LEDS)
+            KiKuBoardInstanz.reset(MOTOR)
+            MotorOn = False
+
+        else:
+            KiKuBoardInstanz.set(LEDS)
+            KiKuBoardInstanz.set(MOTOR)
+            MotorOn = True
+
+KiKuBoardInstanz.reset(LEDS)
+KiKuBoardInstanz.reset(MOTOR)

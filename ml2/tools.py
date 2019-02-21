@@ -12,7 +12,9 @@ import os, sys
 import cv2
 import numpy as np
 import copy
+
 import math
+
 
 RoiX1=0
 RoiY1=0
@@ -23,6 +25,13 @@ RoiPnt=0
 wname = "Select Roi (Exit with q)"
 movement_detected_old_avg=-1
 movement_detected_nth=0
+
+def movement_detector_reset( ):
+    global movement_detected_old_avg
+    global movement_detected_nth
+    movement_detected_old_avg = -1
+    movement_detected_nth = 0
+
 
 def movement_detected( img, th=5, nth=2 ):
     global movement_detected_old_avg
@@ -46,6 +55,7 @@ def movement_detected( img, th=5, nth=2 ):
 def select_roi(img, col):
 
     cv2.namedWindow(wname)
+
     frame = copy.copy(img)
     def mouse_event(event,x,y,flags,param):
         global RoiX1, RoiY1
@@ -71,7 +81,6 @@ def select_roi(img, col):
         frame = copy.copy(img)
         cv2.rectangle(frame, (RoiX1, RoiY1), (RoiX2, RoiY2), col, 1, 1)
         cv2.imshow(wname, frame)
-
         k = cv2.waitKey(100) & 0xFF
         if k == ord('q'):
             break

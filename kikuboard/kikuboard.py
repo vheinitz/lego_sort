@@ -26,6 +26,10 @@ class KiKuBoard:
                     break
 
         self.ser = serial.Serial(use_port, baudrate=38400)
+        if not self.ser or self.ser.port is None:
+            self.ser = None
+            return False
+
         time.sleep(3)
         self.ser.write('#')  # Identify
         time.sleep(1)
@@ -34,7 +38,7 @@ class KiKuBoard:
             self.isConnected = True
             return True
         else:
-           return False
+            return False
 
     def close(self):
         if self.ser:

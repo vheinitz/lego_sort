@@ -8,12 +8,12 @@ from ml2 import tools
 from kikuboard import kikuboard
 import time
 import copy
-import Einstellungen
+import Einstellungen           #Gemeinsame Datei Einstellungen importieren
 
 
 
 
-cl = classifier.Classifier()
+Klassifikator = classifier.Classifier()
 
 RoiX1=0
 RoiY1=0
@@ -43,7 +43,7 @@ try:
     for l in cfg:
         n = int(l.split(' ')[0])
         v = int(l.split(' ')[1])
-        cl.resultmap[n] = v
+        Klassifikator.resultmap[n] = v
 except:
     pass
 
@@ -59,50 +59,48 @@ time.sleep(2)
 cap.set(cv2.CAP_PROP_EXPOSURE, Exposure)
 
 
-cl.setBaseDir(Einstellungen.BaseDir)
+Klassifikator.setBaseDir(Einstellungen.BaseDir)    #Verzeichnis in dem die Bilder gespeichert und geladen werden.
 
 
 
-pc = procchain.ProcChain("ROI")      #Neue Prozesskette mit dem Namen ROI fuer die Grauumwandlung und ROI herausschneiden
-pc.append(procchain.ImgProcToGray()) #Neue Grauumwandlung
-pc.append(procchain.ImgProcRoi( RoiX1, RoiX2, RoiY1, RoiY2)) #ROI herausschneiden
-pc.enableDebug(True)                                         #Ausgabe der Schritte aktivieren zum Testen
+ProzessKetteROI = procchain.ProcChain("ROI")      #Neue Prozesskette mit dem Namen ROI fuer die Grauumwandlung und ROI herausschneiden
+ProzessKetteROI.append(procchain.ImgProcToGray()) #Neue Grauumwandlung
+ProzessKetteROI.append(procchain.ImgProcRoi(RoiX1, RoiX2, RoiY1, RoiY2)) #ROI herausschneiden
+ProzessKetteROI.enableDebug(True)                                         #Ausgabe der Schritte aktivieren zum Testen
 
-pc1 = procchain.ProcChain("SVM-Data")       #Neue Prozesskette zum Umwandeln des Bildes in SVM-Taugliche Daten
-pc1.append(procchain.ImgProcToGray())       #Graustufen
-pc1.append(procchain.ImgProcStore( "ROI"))  #Speichere akt. Bild in der Kette unter dem Namen ROI
-pc1.append(procchain.ImgProcObjRoi("ObjRoi")) #ROI/Rahmen vom Objekt finden
-pc1.append(procchain.ImgProcUse( "ROI"))    #Gespeicheres Bild mit dem Namen ROI als akt. benutzen
-pc1.append(procchain.ImgProcRoiByName( "ObjRoi")) #Aus dem Bild den Ausschnitt gefunden in "ObjRoi" herausschneiden
-pc1.append(procchain.ImgProcResize(32, 32))  #Ausschnitt auf 32x32 Pixel verkleinern
-pc1.append(procchain.ImgProcNorm())          #Bild normalisieren, alle Werte zwischen 0 und 1
-pc1.append(procchain.ImgProcStore("result")) #Bild als "result" im Kontextobjekt speichern
-pc1.enableDebug(True)
+ProzessKetteSVMData = procchain.ProcChain("SVM-Data")       #Neue Prozesskette zum Umwandeln des Bildes in SVM-Taugliche Daten
+ProzessKetteSVMData.append(procchain.ImgProcToGray())       #Graustufen
+ProzessKetteSVMData.append(procchain.ImgProcStore("ROI"))  #Speichere akt. Bild in der Kette unter dem Namen ROI
+ProzessKetteSVMData.append(procchain.ImgProcObjRoi("ObjRoi")) #ROI/Rahmen vom Objekt finden
+ProzessKetteSVMData.append(procchain.ImgProcUse("ROI"))    #Gespeicheres Bild mit dem Namen ROI als akt. benutzen
+ProzessKetteSVMData.append(procchain.ImgProcRoiByName("ObjRoi")) #Aus dem Bild den Ausschnitt gefunden in "ObjRoi" herausschneiden
+ProzessKetteSVMData.append(procchain.ImgProcResize(32, 32))  #Ausschnitt auf 32x32 Pixel verkleinern
+ProzessKetteSVMData.append(procchain.ImgProcNorm())          #Bild normalisieren, alle Werte zwischen 0 und 1
+ProzessKetteSVMData.append(procchain.ImgProcStore("result")) #Bild als "result" im Kontextobjekt speichern
+ProzessKetteSVMData.enableDebug(True)
 
 
-kb = kikuboard.KiKuBoard()                   #KiKu (Kinderkurs) Platine Objekt zum Steuern vom Band und LEDs
-kb.connect()                                 #Mit Arduino verbinden
-print kb.version()                           #Version ausgeben
-kb.set(LEDS)                                 #LEDs einschalten
+KiKuBoardInstanz = kikuboard.KiKuBoard()                   #KiKu (Kinderkurs) Platine Objekt zum Steuern vom Band und LEDs
+KiKuBoardInstanz.connect()                                 #Mit Arduino verbinden
+print KiKuBoardInstanz.version()                           #Version ausgeben
+KiKuBoardInstanz.set(LEDS)                                 #LEDs einschalten
 
 Fachwinkel=0                                 #Variable fuer den Fachwinkel
 MotorOn=False                                #Bandmotor an oder aus. Beim Start aus
-DetectorTH=75
-ObjektImDetektor=False
-StepperPos=0
-Class=0
-ClassToStepperPos = {}
+DetectorTH=5                                 #Detektor-Schranke (experimentell ermittelt)
+DifferenzZwischenNBild=4                     #Objekt feststellen indem die Mittelwertdifferenzen zwischen den N. Bild verglichen werden
 
+FeatureExtractionInstanz = featex.FeatEx()        # FE Instanz erzeugen
+FeatureExtractionInstanz.append(featex.Pixels())  # Einzelne Pixel als Merkmale nutzen
 
 while(True):
 
     ret, Kamerbild = cap.read()   #Das Bild von der Kamera in der Variable Kamerbild speichern
 
     Ausgabebild = copy.copy(Kamerbild) #Kamerabild in Ausgabebild kopieren
-    detector = Kamerbild[DetectorRoiY1: DetectorRoiY2, DetectorRoiX1: DetectorRoiX2]
-    #cv2.imshow("Detector", detector)
+    DetectorROI = Kamerbild[DetectorRoiY1: DetectorRoiY2, DetectorRoiX1: DetectorRoiX2]
 
-    ObjektImDetektor = tools.movement_detected(detector, 3, 4)
+    ObjektImDetektor = tools.movement_detected(DetectorROI, DetectorTH, DifferenzZwischenNBild)
 
     cv2.rectangle(Ausgabebild, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 1, 1)
     cv2.rectangle(Ausgabebild, (DetectorRoiX1, DetectorRoiY1), (DetectorRoiX2, DetectorRoiY2), (255, 0, 0), 2)
@@ -120,72 +118,62 @@ while(True):
 
 
 
-    simg = pc.process(Kamerbild)
-    cv2.imshow("VideoStore", simg)
+    ROIGrauBild = ProzessKetteROI.process(Kamerbild)
 
-    pc1.process(simg)
-    ctx = pc1.context()
-    objshape = ctx["ObjRoi"]
-    AreaObject = objshape[2] * objshape[3]
-    Areaimg = (simg.shape[0] * simg.shape[1])
+    #ProzessKetteSVMData.process(ROIGrauBild)                      #Evtl. zum Testen SVM-Prozesskette anzeigen
 
-    if AreaObject < (Areaimg *0.9):
-        print objshape
 
-    k = cv2.waitKey(100) & 0xFF
+    if MotorOn and ObjektImDetektor:   #Objekt festgestellt -> Bild fuer das eingestelle Fachwinkel hinzufuegen
+        Klassifikator.addItem(ROIGrauBild, "%d" % Fachwinkel)
+        tools.movement_detector_reset() #Verhindern, dass ein Objekt mehrmals erkannt wird, Objekt aus dem Feld rausfahren lassen
+        time.sleep(2)                  #Programm anhalten, so dass Objekt aus dem Detektor ROI rausfaehrt
 
-    if MotorOn and not ObjektImDetektor:   # Append Image
-        cl.addItem(simg, "%d" % Fachwinkel)
-        ObjektImDetektor = True
+    Taste = cv2.waitKey(100) & 0xFF
 
-    if ObjektImDetektor and DetektorMittelwert > DetectorTH:   # Append Image
-        ObjektImDetektor = False
-
-    if k == ord('q'):               # Anlernen beenden
+    if Taste == ord('q'):               # Anlernen beenden
         break
 
-    elif k == ord('r'):             # Roi setzen
+    elif Taste == ord('r'):             # Roi setzen
         (RoiX1, RoiY1, RoiX2, RoiY2)=tools.select_roi(Kamerbild, (0, 255, 0))
 
-    elif k == ord('d'):             # Detector Roi setzen
+    elif Taste == ord('d'):             # Detector Roi setzen
         (DetectorRoiX1, DetectorRoiY1, DetectorRoiX2, DetectorRoiY2) = tools.select_roi(Kamerbild, (0, 0, 255))
 
-    elif k == ord('a'):             # Append Image
-        cl.addItem(simg,"%d" % Fachwinkel)
+    elif Taste == ord('a'):             # Append Image
+        Klassifikator.addItem(ROIGrauBild, "%d" % Fachwinkel)
 
-    elif k == ord('+'):
+    elif Taste == ord('+'):             #Fachwinkel vergroessern, Fach drehen
         Fachwinkel += 20
-        kb.stepper(1, 20)
+        KiKuBoardInstanz.stepper(1, 20)
 
-    elif k == ord('-'):
+    elif Taste == ord('-'):             #Fachwinkel verkleinern, Fach drehen
         Fachwinkel -= 20
-        kb.stepper(1, -20)
+        KiKuBoardInstanz.stepper(1, -20)
 
-    elif k == ord('0'):
+    elif Taste == ord('0'):             #Fachwinkel auf 0 setzen
         Fachwinkel = 0
 
-    elif k == ord(' '):
+    elif Taste == ord(' '):             #Band an-/aus- schalten
         if MotorOn:
-            kb.reset(LEDS)
-            kb.reset(MOTOR)
+            KiKuBoardInstanz.reset(LEDS)
+            KiKuBoardInstanz.reset(MOTOR)
             MotorOn = False
 
         else:
-            kb.set(LEDS)
-            kb.set(MOTOR)
+            KiKuBoardInstanz.set(LEDS)
+            KiKuBoardInstanz.set(MOTOR)
             MotorOn = True
 
-fe = featex.FeatEx()
-fe.append(featex.Pixels())
+#While Schleife zu Ende, weil q-Taste
 
 try:
-    cl.learn(pc1, fe)
+    Klassifikator.learn(ProzessKetteSVMData, FeatureExtractionInstanz)  #Klassifikator anlernen mit allen Bildern, die gespeichert wurden
 except:
-    pass
+    pass                                                                #Falls was schief geht, ignorieren
 
 try:
-    cfg = open( os.path.join(Einstellungen.BaseDir,"roi.txt"), 'w' )
-    cfg.write( "%d %d %d %d\n%d %d %d %d" %
+    cfg = open( os.path.join(Einstellungen.BaseDir,"roi.txt"), 'w' )    #Alle Einstellungen speichern
+    cfg.write( "%d %d %d %d\n%d %d %d %d" %                             #ROIs
                (RoiX1,
                 RoiY1,
                 RoiX2,
@@ -195,15 +183,14 @@ try:
                 DetectorRoiX2,
                 DetectorRoiY2)
                )
-    cfg.close()
-    cfg = open(os.path.join(Einstellungen.BaseDir, "map.txt"), 'w')
-    for k in cl.resultmap:
+    cfg.close()                                                         # roi.txt schliessen
 
-        cfg.write("%d %d\n" % (k,cl.resultmap[k])
-              )
-    cfg.close()
+    cfg = open(os.path.join(Einstellungen.BaseDir, "map.txt"), 'w')     #Klasse->Winkel Zuordnung
+    for k in Klassifikator.resultmap:
+        cfg.write("%d %d\n" % (k, Klassifikator.resultmap[k]))
+    cfg.close()                                                         # map.txt schliessen
 except:
     pass
 
-cv2.destroyAllWindows()
+cv2.destroyAllWindows()                                                 #Alle OpenCV-Fenster schliessen
 
