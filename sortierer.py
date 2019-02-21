@@ -11,8 +11,6 @@ import copy
 import Einstellungen            #Gemeinsame Datei Einstellungen importieren
 
 
-
-BaseDir = "Testmodell1"
 Klassifikator = classifier.Classifier()
 
 RoiX1=0
@@ -55,7 +53,7 @@ cap = cv2.VideoCapture(Einstellungen.CameraID)   #Kamera einschalten
 time.sleep(2)
 cap.set(cv2.CAP_PROP_EXPOSURE, Exposure)
 
-Klassifikator.setBaseDir(BaseDir)
+Klassifikator.setBaseDir(Einstellungen.BaseDir)
 
 
 ProzessKetteROI = procchain.ProcChain("ROI")
@@ -104,16 +102,7 @@ while(True):
     DetectorROI = Kamerbild[DetectorRoiY1: DetectorRoiY2, DetectorRoiX1: DetectorRoiX2]
     ObjektImDetektor = tools.movement_detected(DetectorROI, DetectorTH, DifferenzZwischenNBild)
 
-    cv2.rectangle(Ausgabebild, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 1, 1)
-    cv2.rectangle(Ausgabebild, (DetectorRoiX1, DetectorRoiY1), (DetectorRoiX2, DetectorRoiY2), (255, 0, 0), 2)
-    cv2.putText(Ausgabebild, 'Fachwinkel: %d, Objekt: %s' %
-                (Fachwinkel, str(ObjektImDetektor)),
-                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
 
-    cv2.putText(Ausgabebild, 'Beenden: q, Winkel: +/-, Band: Leertaste, Fachwinkel 0-Pos: 0',
-                (10, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_4)
-
-    cv2.imshow("VideoIn", Ausgabebild)
 
     if MotorOn and ObjektImDetektor:  # Objekt festgestellt -> Bild fuer das eingestelle Fachwinkel hinzufuegen
         roi = ProzessKetteROI.process(Kamerbild)  # ROI ausschneiden
@@ -125,17 +114,26 @@ while(True):
         time.sleep(3)                   #Warten, bis objekt vom Band weg ist
         KiKuBoardInstanz.stepper(1, -int(Fachwinkel)) #Fach auf 0-Position zurueck drehen
 
+    cv2.rectangle(Ausgabebild, (RoiX1, RoiY1), (RoiX2, RoiY2), (0, 255, 0), 1, 1)
+    cv2.rectangle(Ausgabebild, (DetectorRoiX1, DetectorRoiY1), (DetectorRoiX2, DetectorRoiY2), (255, 0, 0), 2)
+    cv2.putText(Ausgabebild, 'Drehen zum Fachwinkel: %d, Objekt: %s' %
+                (Fachwinkel, str(ObjektImDetektor)),
+                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+
+    cv2.putText(Ausgabebild, 'Beenden: q, Winkel: +/-, Band: Leertaste, Fachwinkel 0-Pos: 0',
+                (10, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_4)
+
+    cv2.imshow("VideoIn", Ausgabebild)
+
     Taste = cv2.waitKey(10) & 0xFF
 
     if Taste == ord('q'):  # Anlernen beenden
         break
 
     elif Taste == ord('+'):  # Fachwinkel vergroessern, Fach drehen
-        Fachwinkel += 20
         KiKuBoardInstanz.stepper(1, 20)
 
     elif Taste == ord('-'):  # Fachwinkel verkleinern, Fach drehen
-        Fachwinkel -= 20
         KiKuBoardInstanz.stepper(1, -20)
 
     elif Taste == ord('0'):  # Fachwinkel auf 0 setzen
