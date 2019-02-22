@@ -86,7 +86,7 @@ class ProcChain:
 
         if self.debug and plt:
             cv2.imshow("Process chain[%s]" % self.name, self.debugView)
-            #cv2.waitKey(10)
+            cv2.waitKey(10)
             self.debugData = []
 
         return tmp

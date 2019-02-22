@@ -50,8 +50,6 @@ def movement_detected( img, th=5, nth=2 ):
     return res
 
 
-
-
 def select_roi(img, col):
 
     cv2.namedWindow(wname)

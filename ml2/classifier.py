@@ -57,16 +57,16 @@ class Classifier:
         self.basedir = dirname
         return True
 
-    def roi(self):
-        roifile = os.path.join(self.basedir, 'roi.txt')
+    def roi(self, fname='roi.txt'):
+        roifile = os.path.join(self.basedir, fname)
         try:
             data = open(roifile, 'r').read().split(" ")
             return (int(data[0]), int(data[1]), int(data[2]), int(data[3]))
         except Exception, ex:
-            return (None, None, None, None)
+            return (0, 0, 640, 480)
 
-    def set_roi(self, x0, y0, x1, y1):
-        roifile = os.path.join(self.basedir, 'roi.txt')
+    def set_roi(self, x0, y0, x1, y1, fname='roi.txt'):
+        roifile = os.path.join(self.basedir, fname)
         try:
             open(roifile, 'w').write("%d %d %d %d" % (x0, y0, x1, y1) )
         except Exception, ex:
@@ -76,7 +76,7 @@ class Classifier:
         self.pc = pc
         self.fe = fe
         modelfile = os.path.join(self.basedir, 'er.model')
-        if os.path.exists(modelfile):
+        if False and os.path.exists(modelfile):
             self.clf = joblib.load( os.path.join(self.basedir, 'er.model'))
         else:
             try:

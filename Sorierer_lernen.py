@@ -14,6 +14,7 @@ import Einstellungen           #Gemeinsame Datei Einstellungen importieren
 
 
 Klassifikator = classifier.Classifier()
+Klassifikator.setBaseDir(Einstellungen.BaseDir)    #Verzeichnis in dem die Bilder gespeichert und geladen werden.
 
 RoiX1=0
 RoiY1=0
@@ -25,31 +26,15 @@ DetectorRoiY1=0
 DetectorRoiX2=640
 DetectorRoiY2=480
 
-try:
-    cfg = open( os.path.join(Einstellungen.BaseDir,"roi.txt"), 'r' ).readlines()
-    n = cfg[0].split(' ')
-    RoiX1 = int(n[0])
-    RoiY1 = int(n[1])
-    RoiX2 = int(n[2])
-    RoiY2 = int(n[3])
 
-    n = cfg[1].split(' ')
-    DetectorRoiX1 = int(n[0])
-    DetectorRoiY1 = int(n[1])
-    DetectorRoiX2 = int(n[2])
-    DetectorRoiY2 = int(n[3])
+#ROI koordinaten laden
+(RoiX1,RoiY1,RoiX2,RoiY2) = Klassifikator.roi()
+(DetectorRoiX1,DetectorRoiY1,DetectorRoiX2,DetectorRoiY2) = Klassifikator.roi("det_roi.txt")
 
-    cfg = open(os.path.join(Einstellungen.BaseDir, "map.txt"), 'r').readlines()
-    for l in cfg:
-        n = int(l.split(' ')[0])
-        v = int(l.split(' ')[1])
-        Klassifikator.resultmap[n] = v
-except:
-    pass
+
 
 LEDS=6   #Arduino DO6
 MOTOR=7  #Arduino DO7
-REED=8   #Arduino DI8
 
 Kamerbild = None
 
@@ -57,16 +42,6 @@ Exposure=-8
 cap = cv2.VideoCapture(Einstellungen.CameraID)   #Kamera einschalten
 time.sleep(2)
 cap.set(cv2.CAP_PROP_EXPOSURE, Exposure)
-
-
-Klassifikator.setBaseDir(Einstellungen.BaseDir)    #Verzeichnis in dem die Bilder gespeichert und geladen werden.
-
-
-
-ProzessKetteROI = procchain.ProcChain("ROI")      #Neue Prozesskette mit dem Namen ROI fuer die Grauumwandlung und ROI herausschneiden
-ProzessKetteROI.append(procchain.ImgProcToGray()) #Neue Grauumwandlung
-ProzessKetteROI.append(procchain.ImgProcRoi(RoiX1, RoiX2, RoiY1, RoiY2)) #ROI herausschneiden
-ProzessKetteROI.enableDebug(True)                                         #Ausgabe der Schritte aktivieren zum Testen
 
 ProzessKetteSVMData = procchain.ProcChain("SVM-Data")       #Neue Prozesskette zum Umwandeln des Bildes in SVM-Taugliche Daten
 ProzessKetteSVMData.append(procchain.ImgProcToGray())       #Graustufen
@@ -93,7 +68,7 @@ DifferenzZwischenNBild=4                     #Objekt feststellen indem die Mitte
 FeatureExtractionInstanz = featex.FeatEx()        # FE Instanz erzeugen
 FeatureExtractionInstanz.append(featex.Pixels())  # Einzelne Pixel als Merkmale nutzen
 
-while(True):
+while(True):                      #Endlosschleife beginnen
 
     ret, Kamerbild = cap.read()   #Das Bild von der Kamera in der Variable Kamerbild speichern
 
@@ -111,20 +86,18 @@ while(True):
     cv2.putText(Ausgabebild, 'Beenden: q, ROI: r, Detektor: d, Bild hinzuf.: a, Winkel: +/-, Band: Leertaste',
                 (10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_4)
     cv2.putText(Ausgabebild,
-                'Fachwinkel 0-Pos: 0',
+                'Fachwinkel 0-Pos: 0, Lernen: l',
                 (10, 470), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_4)
 
     cv2.imshow("VideoIn", Ausgabebild)   #Bild mit ROI, Detektor, Info und Hilfe zeigen
 
+    ROIBild = Kamerbild[RoiY1: RoiY2, RoiX1: RoiX2]
 
-
-    ROIGrauBild = ProzessKetteROI.process(Kamerbild)
-
-    #ProzessKetteSVMData.process(ROIGrauBild)                      #Evtl. zum Testen SVM-Prozesskette anzeigen
+    #ProzessKetteSVMData.process(ROIBild)                      #Evtl. zum Testen SVM-Prozesskette anzeigen
 
 
     if MotorOn and ObjektImDetektor:   #Objekt festgestellt -> Bild fuer das eingestelle Fachwinkel hinzufuegen
-        Klassifikator.addItem(ROIGrauBild, "%d" % Fachwinkel)
+        Klassifikator.addItem(ROIBild, "%d" % Fachwinkel)
         tools.movement_detector_reset() #Verhindern, dass ein Objekt mehrmals erkannt wird, Objekt aus dem Feld rausfahren lassen
         time.sleep(2)                  #Programm anhalten, so dass Objekt aus dem Detektor ROI rausfaehrt
 
@@ -135,12 +108,14 @@ while(True):
 
     elif Taste == ord('r'):             # Roi setzen
         (RoiX1, RoiY1, RoiX2, RoiY2)=tools.select_roi(Kamerbild, (0, 255, 0))
+        Klassifikator.set_roi(RoiX1, RoiY1, RoiX2, RoiY2)
 
     elif Taste == ord('d'):             # Detector Roi setzen
         (DetectorRoiX1, DetectorRoiY1, DetectorRoiX2, DetectorRoiY2) = tools.select_roi(Kamerbild, (0, 0, 255))
+        Klassifikator.set_roi( DetectorRoiX1, DetectorRoiY1, DetectorRoiX2, DetectorRoiY2, "det_roi.txt")
 
     elif Taste == ord('a'):             # Append Image
-        Klassifikator.addItem(ROIGrauBild, "%d" % Fachwinkel)
+        Klassifikator.addItem(ROIBild, "%d" % Fachwinkel)
 
     elif Taste == ord('+'):             #Fachwinkel vergroessern, Fach drehen
         Fachwinkel += 20
@@ -152,6 +127,14 @@ while(True):
 
     elif Taste == ord('0'):             #Fachwinkel auf 0 setzen
         Fachwinkel = 0
+
+    elif Taste == ord('l'):             #Fachwinkel auf 0 setzen
+        try:
+            Klassifikator.learn(ProzessKetteSVMData,
+                                FeatureExtractionInstanz)  # Klassifikator anlernen mit allen Bildern, die gespeichert wurden                                                     # map.txt schliessen
+        except:
+            pass
+
 
     elif Taste == ord(' '):             #Band an-/aus- schalten
         if MotorOn:
@@ -166,31 +149,7 @@ while(True):
 
 #While Schleife zu Ende, weil q-Taste
 
-try:
-    Klassifikator.learn(ProzessKetteSVMData, FeatureExtractionInstanz)  #Klassifikator anlernen mit allen Bildern, die gespeichert wurden
-except:
-    pass                                                                #Falls was schief geht, ignorieren
 
-try:
-    cfg = open( os.path.join(Einstellungen.BaseDir,"roi.txt"), 'w' )    #Alle Einstellungen speichern
-    cfg.write( "%d %d %d %d\n%d %d %d %d" %                             #ROIs
-               (RoiX1,
-                RoiY1,
-                RoiX2,
-                RoiY2,
-                DetectorRoiX1,
-                DetectorRoiY1,
-                DetectorRoiX2,
-                DetectorRoiY2)
-               )
-    cfg.close()                                                         # roi.txt schliessen
-
-    cfg = open(os.path.join(Einstellungen.BaseDir, "map.txt"), 'w')     #Klasse->Winkel Zuordnung
-    for k in Klassifikator.resultmap:
-        cfg.write("%d %d\n" % (k, Klassifikator.resultmap[k]))
-    cfg.close()                                                         # map.txt schliessen
-except:
-    pass
 
 cv2.destroyAllWindows()                                                 #Alle OpenCV-Fenster schliessen
 

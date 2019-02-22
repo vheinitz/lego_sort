@@ -1,2 +1,2 @@
-BaseDir = "Testmodell_1"
-CameraID=0
+BaseDir = "Modell_Lego1"
+CameraID=1
