@@ -38,10 +38,10 @@ MOTOR=7  #Arduino DO7
 
 Kamerbild = None
 
-Exposure=-8
+
 cap = cv2.VideoCapture(Einstellungen.CameraID)   #Kamera einschalten
 time.sleep(2)
-cap.set(cv2.CAP_PROP_EXPOSURE, Exposure)
+cap.set(cv2.CAP_PROP_EXPOSURE, Einstellungen.Exposure)
 
 ProzessKetteSVMData = procchain.ProcChain("SVM-Data")       #Neue Prozesskette zum Umwandeln des Bildes in SVM-Taugliche Daten
 ProzessKetteSVMData.append(procchain.ImgProcToGray())       #Graustufen
@@ -118,10 +118,18 @@ while(True):                      #Endlosschleife beginnen
         Klassifikator.addItem(ROIBild, "%d" % Fachwinkel)
 
     elif Taste == ord('+'):             #Fachwinkel vergroessern, Fach drehen
+        if MotorOn:                     #Band evtl ausschalten, weil Falscherkennung
+            KiKuBoardInstanz.reset(LEDS)
+            KiKuBoardInstanz.reset(MOTOR)
+            MotorOn = False
         Fachwinkel += 20
         KiKuBoardInstanz.stepper(1, 20)
 
     elif Taste == ord('-'):             #Fachwinkel verkleinern, Fach drehen
+        if MotorOn:                     #Band evtl ausschalten, weil Falscherkennung
+            KiKuBoardInstanz.reset(LEDS)
+            KiKuBoardInstanz.reset(MOTOR)
+            MotorOn = False
         Fachwinkel -= 20
         KiKuBoardInstanz.stepper(1, -20)
 

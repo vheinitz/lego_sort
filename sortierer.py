@@ -29,10 +29,10 @@ Klassifikator.setBaseDir(Einstellungen.BaseDir)
 LEDS=6   #Arduino DO6
 MOTOR=7  #Arduino DO7
 
-Exposure=-8
+
 cap = cv2.VideoCapture(Einstellungen.CameraID)   #Kamera einschalten
 time.sleep(2)
-cap.set(cv2.CAP_PROP_EXPOSURE, Exposure)
+cap.set(cv2.CAP_PROP_EXPOSURE, Einstellungen.Exposure)
 
 ProzessKetteSVMData = procchain.ProcChain("SVM-Data")       #Neue Prozesskette zum Umwandeln des Bildes in SVM-Taugliche Daten
 ProzessKetteSVMData.append(procchain.ImgProcToGray())       #Graustufen
@@ -53,7 +53,7 @@ KiKuBoardInstanz.set(LEDS)                                    # LEDs einschalten
 Fachwinkel=0                                                # Variable fuer den Fachwinkel
 MotorOn=False                                               # Bandmotor an oder aus. Beim Start aus
 DetectorTH=5                                                # Detektor-Schranke (experimentell ermittelt)
-DifferenzZwischenNBild=4                                    # Objekt feststellen indem die Mittelwertdifferenzen zwischen den N. Bild verglichen werden
+DifferenzZwischenNBild=2                                   # Objekt feststellen indem die Mittelwertdifferenzen zwischen den N. Bild verglichen werden
 
 FeatureExtractionInstanz = featex.FeatEx()                  # FE Instanz erzeugen
 FeatureExtractionInstanz.append(featex.Pixels())            # Einzelne Pixel als Merkmale nutzen
