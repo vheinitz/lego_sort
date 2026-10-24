@@ -9,7 +9,7 @@
     -Training
     -Testing
 
-    :copyright: (c) 2018 by Aleksej Kusnezov
+    :copyright: (c) 2018 by Valentin Heinitz
     :license: BSD, see LICENSE for more details.
 """
 
