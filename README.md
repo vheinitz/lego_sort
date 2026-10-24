@@ -2,9 +2,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Camera-based sorter from 2019: a conveyor belt carries objects (Lego bricks or
-coins) past a webcam, an SVM classifies each one, and a stepper motor turns the
-bin to the learned angle. Hardware is driven through the KiKu board (Arduino).
+Camera-based sorter, built for Jugend forscht in 2019: a conveyor belt carries
+objects (Lego bricks or coins) past a webcam, an SVM classifies each one, and a
+stepper motor turns the bin to the learned angle. Hardware is driven through the KiKu board (Arduino).
 
 Status: Python 2 code, last changed in February 2019.
 
@@ -56,5 +56,4 @@ whenever the detector fires. Sorting mode accepts `+`/`-`, `0`, space and `q`.
 
 ## License
 
-[MIT](LICENSE) © Valentin Heinitz. The headers in `ml2/` still say "BSD, see
-LICENSE".
+[MIT](LICENSE) © Valentin Heinitz.

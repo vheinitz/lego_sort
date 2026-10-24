@@ -6,7 +6,7 @@
     TODO: describe
 
     :copyright: (c) 2018 by Valentin Heinitz
-    :license: BSD, see LICENSE for more details.
+    :license: MIT, see LICENSE for more details.
 """
 import os, sys
 import cv2
